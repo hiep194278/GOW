@@ -13,6 +13,10 @@ sys.path.append('src')
 from gow import gow_sinkhorn_autoscale
 
 def load_human_action_dataset(data_dir, dataset_name):
+    '''
+    Loads train and test data from the folder in which
+    the Human Actions dataset are stored.
+    '''
     X_train = joblib.load(os.path.join(data_dir, dataset_name, "X_train.pkl"))
     y_train = joblib.load(os.path.join(data_dir, dataset_name, "y_train.pkl"))
     X_test = joblib.load(os.path.join(data_dir, dataset_name, "X_test.pkl"))
@@ -33,6 +37,10 @@ def fix_array(X):
     return X_new
 
 def load_ucr_dataset(data_dir, dataset_name):
+    '''
+    Loads train and test data from the folder in which
+    the UCR dataset are stored.
+    '''
     X, y_train = load_from_tsfile(os.path.join(data_dir, dataset_name, f'{dataset_name}_TRAIN'))
     X_train = fix_array(X)
     X, y_test = load_from_tsfile(os.path.join(data_dir, dataset_name, f'{dataset_name}_TEST'))

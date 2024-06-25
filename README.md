@@ -36,7 +36,7 @@ seq1 = X_test[2]
 seq2 = X_train[3]
 
 # Compute the initial cost matrix
-D = ot.dist(seq1, seq2)
+D = dist(seq1, seq2)
 D = D / D.max()
 
 # Distance returned by GOW
