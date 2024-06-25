@@ -9,6 +9,8 @@ GOW relies on the following dependencies:
 - `POT`
 - `aeon`
 - `joblib`
+- `seaborn`
+- `matplotlib`
 
 ## Installation
 
@@ -59,7 +61,7 @@ run_knn(X_train, y_train, X_test, y_test)
 
 You can find some simple examples on our [examples
 page](https://github.com/hiep194278/GOW/tree/main/examples) and an
-examples [jupyter
+example [jupyter
 notebook](https://github.com/hiep194278/GOW/blob/main/examples/example.ipynb).
 
 ## Help
