@@ -14,7 +14,7 @@ GOW relies on the following dependencies:
 
 ## Installation
 
-Install GOW by to cloning it using the Web URL:
+Install GOW by cloning it using the Web URL:
 
 ```
 $ git clone https://github.com/hiep194278/GOW.git
