@@ -13,9 +13,6 @@ def logarithm(x, a, b):
 def hyperbolic_tangent(x, a, b, c):
     return a * np.tanh(b*x + c)
 
-def I_spline():
-    return
-
 def polynomial_with_degree(x, a, b, c):
     return a * pow(b*x, c)
 
@@ -35,6 +32,11 @@ def compute_f(function_info, x):
     return ValueError("Function not defined")
 
 def compute_f_scale(function_info, x, i_scale, j_scale):
+    '''
+    Assuming the input function lies inside the unit square, 
+    scale the function according to the lengths of 2 sequences. 
+    '''
+
     x_scaled = x / j_scale
 
     match function_info[0]:
@@ -49,9 +51,14 @@ def compute_f_scale(function_info, x, i_scale, j_scale):
         case 'polynomial_with_degree':
             return i_scale * polynomial_with_degree(x_scaled, function_info[1][0], function_info[1][1], function_info[1][2])
             
-    return ValueError("Function not defined")
+    return ValueError("Function not defined, valid function name:'polynomial', 'exponential', 'logarithm', 'hyperbolic_tangent', 'polynomial_with_degree'")
 
 def compute_new_cost(old_D, alpha, F, LAMBDA3):
+    '''
+    Computing the new cost matrix with the new weight vector 
+    (no scaling) 
+    '''
+
     n = old_D.shape[0]
     m = old_D.shape[1]
 
@@ -64,6 +71,11 @@ def compute_new_cost(old_D, alpha, F, LAMBDA3):
     return new_D
 
 def compute_new_cost2(old_D, w, F, LAMBDA1):
+    '''
+    Computing the new cost matrix with the new weight vector 
+    (the lengths of sequences are taken into account) 
+    '''
+
     n = old_D.shape[0]
     m = old_D.shape[1]
 
@@ -76,6 +88,11 @@ def compute_new_cost2(old_D, w, F, LAMBDA1):
     return new_D
 
 def choose_initial_w(Y, V, num_function):
+    '''
+    Initialize weight vector with an array that optimizes the objective GOW function. 
+    The array always has an element equals to 1 and the rest of them equals to 0.
+    '''
+
     initial_w = np.zeros((num_function, 1))
     min_S = np.Inf
     min_index = 0
@@ -92,7 +109,43 @@ def choose_initial_w(Y, V, num_function):
 
     return initial_w
 
-def gow_sinkhorn(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, LAMBDA2=10, maxIter=15, stoppingCriterion='w_slope', epsilon=0.01, num_FW_iteration=100, show_details=False):
+def gow_sinkhorn(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, LAMBDA2=10, maxIter=15, epsilon=0.01, num_FW_iteration=100, show_details=False):
+    '''
+    Computes the GOW distance between two sequences.
+    If cost matrix D is of shape n x m,
+    the resulting transport matrix is of shape n x m.
+
+    Parameters
+    ----------
+    a : array-like, shape (dim_a,)
+        samples weights in the source domain
+    b : array-like, shape (dim_b,) or ndarray, shape (dim_b, n_hists)
+        samples in the target domain
+    D : array-like, shape (dim_a, dim_b)
+        loss matrix
+    function_list : list, optional
+        Input functions to control the warping path
+    LAMBDA1 : float, optional
+        Regularization term for input functions
+    LAMBDA2 : float, optional
+        Regularization term for Sinkhorn
+    maxIter: int, optional
+        Max number of iterations for the main loop (Coordinate Descent)
+    epsilon: float, optional
+        Stop threshold on error
+    num_FW_iteration: int, optional
+        Number of Frank-Wolfe iterations
+    show_details: bool, optional
+        Return GOW distance, transport matrix and weight vector if True
+
+    Returns
+    -------
+    float : GOW distance
+    float, array-like, array-like:
+        GOW distance, transport matrix and weight vector (return only if show_details==True in parameters)
+
+    '''
+
     n = D.shape[0]
     m = D.shape[1]
 
@@ -133,6 +186,7 @@ def gow_sinkhorn(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, 
 
         w_new = choose_initial_w(Y, V, num_function)
         
+        # Frank-Wolfe iterations
         for FW_index in range(num_FW_iteration):
             gradient = -2 * np.matmul(np.transpose(V), Y - np.matmul(V, w_new))
             min_index = np.argmin(gradient)
@@ -142,15 +196,12 @@ def gow_sinkhorn(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, 
             w_new = w_new + FW_step_size*(s - w_new)
 
         # Check stopping criterion
-        match stoppingCriterion:
-            case 'alpha_slope': 
-                if iterCount != 1:
-                    diff = (np.absolute(w_new - w_old)).max() 
-                    # diff = np.sqrt(np.sum((w_new - w_old) ** 2))
+        if iterCount != 1:
+            diff = (np.absolute(w_new - w_old)).max() 
+            # diff = np.sqrt(np.sum((w_new - w_old) ** 2))
 
-                    if diff < epsilon:
-                        break
-
+            if diff < epsilon:
+                break
 
         # New cost matrix from new w
         D_ = compute_new_cost2(D, w_new, F, LAMBDA1)
@@ -161,7 +212,45 @@ def gow_sinkhorn(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, 
 
     return np.sum(D * T)
 
-def gow_sinkhorn_autoscale(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, LAMBDA2=10, maxIter=15, stoppingCriterion='w_slope', epsilon=0.01, num_FW_iteration=100, show_details=False):
+def gow_sinkhorn_autoscale(a, b, D, function_list=[("polynomial", (1.0, 0)),], LAMBDA1=5, LAMBDA2=10, maxIter=15, epsilon=0.01, num_FW_iteration=100, show_details=False):
+    '''
+    Computes the GOW distance between two sequences.
+    If cost matrix D is of shape n x m,
+    the resulting transport matrix is of shape n x m.
+    The input functions will be scaled automatically
+    according the sized of two sequences.
+
+    Parameters
+    ----------
+    a : array-like, shape (dim_a,)
+        samples weights in the source domain
+    b : array-like, shape (dim_b,) or ndarray, shape (dim_b, n_hists)
+        samples in the target domain
+    D : array-like, shape (dim_a, dim_b)
+        loss matrix
+    function_list : list, optional
+        Input functions to control the warping path
+    LAMBDA1 : float, optional
+        Regularization term for input functions
+    LAMBDA2 : float, optional
+        Regularization term for Sinkhorn
+    maxIter: int, optional
+        Max number of iterations for the main loop (Coordinate Descent)
+    epsilon: float, optional
+        Stop threshold on error
+    num_FW_iteration: int, optional
+        Number of Frank-Wolfe iterations
+    show_details: bool, optional
+        Return GOW distance, transport matrix and weight vector if True
+
+    Returns
+    -------
+    float : GOW distance
+    float, array-like, array-like:
+        GOW distance, transport matrix and weight vector (return only if show_details==True in parameters)
+
+    '''
+
     n = D.shape[0]
     m = D.shape[1]
 
@@ -206,6 +295,7 @@ def gow_sinkhorn_autoscale(a, b, D, function_list=[("polynomial", (1.0, 0)),], L
 
         w_new = choose_initial_w(Y, V, num_function)
         
+        # Frank-Wolfe iterations
         for FW_index in range(num_FW_iteration):
             gradient = -2 * np.matmul(np.transpose(V), Y - np.matmul(V, w_new))
             min_index = np.argmin(gradient)
@@ -218,13 +308,11 @@ def gow_sinkhorn_autoscale(a, b, D, function_list=[("polynomial", (1.0, 0)),], L
         D_ = compute_new_cost(D, w_new, F, LAMBDA1)
 
         # Check stopping criterion
-        match stoppingCriterion:
-            case 'w_slope': 
-                if iterCount != 1:
-                    diff = (np.absolute(w_new - w_old)).max() 
+        if iterCount != 1:
+            diff = (np.absolute(w_new - w_old)).max() 
 
-                    if diff < epsilon:
-                        break
+            if diff < epsilon:
+                break
 
         w_old = w_new
 
@@ -233,7 +321,43 @@ def gow_sinkhorn_autoscale(a, b, D, function_list=[("polynomial", (1.0, 0)),], L
 
     return np.sum(D * T)
 
-def gow_sinkhorn_autoscale_fixed(a, b, D, LAMBDA1=10, LAMBDA2=5, maxIter=15, stoppingCriterion='w_slope', epsilon=0.01, num_FW_iteration=100, show_details=False):
+def gow_sinkhorn_autoscale_fixed(a, b, D, LAMBDA1=10, LAMBDA2=5, maxIter=15, epsilon=0.01, num_FW_iteration=100, show_details=False):
+    '''
+    Computes the GOW distance between two sequences.
+    If cost matrix D is of shape n x m,
+    the resulting transport matrix is of shape n x m.
+    Input functions are not needed because this function
+    uses 5 fixed monotonic functions.
+
+    Parameters
+    ----------
+    a : array-like, shape (dim_a,)
+        samples weights in the source domain
+    b : array-like, shape (dim_b,) or ndarray, shape (dim_b, n_hists)
+        samples in the target domain
+    D : array-like, shape (dim_a, dim_b)
+        loss matrix
+    LAMBDA1 : float, optional
+        Regularization term for input functions
+    LAMBDA2 : float, optional
+        Regularization term for Sinkhorn
+    maxIter: int, optional
+        Max number of iterations for the main loop (Coordinate Descent)
+    epsilon: float, optional
+        Stop threshold on error
+    num_FW_iteration: int, optional
+        Number of Frank-Wolfe iterations
+    show_details: bool, optional
+        Return GOW distance, transport matrix and weight vector if True
+
+    Returns
+    -------
+    float : GOW distance
+    float, array-like, array-like:
+        GOW distance, transport matrix and weight vector (return only if show_details==True in parameters)
+
+    '''
+
     n = D.shape[0]
     m = D.shape[1]
     i_scale = n - 1
@@ -244,6 +368,7 @@ def gow_sinkhorn_autoscale_fixed(a, b, D, LAMBDA1=10, LAMBDA2=5, maxIter=15, sto
     if len(b) == 0:
         b = np.full((m,), 1.0 / m)
 
+    # 5 fixed monotonic functions
     func1 = ('polynomial_with_degree', (1.0, 1.0, 0.05))
     func2 = ('polynomial_with_degree', (1.0, 1.0, 0.28))
     func3 = ("polynomial", (1.0, 0)) 
@@ -284,6 +409,7 @@ def gow_sinkhorn_autoscale_fixed(a, b, D, LAMBDA1=10, LAMBDA2=5, maxIter=15, sto
 
         w_new = choose_initial_w(Y, V, num_function)
         
+        # Frank-Wolfe iterations
         for FW_index in range(num_FW_iteration):
             gradient = -2 * np.matmul(np.transpose(V), Y - np.matmul(V, w_new))
             min_index = np.argmin(gradient)
@@ -296,13 +422,11 @@ def gow_sinkhorn_autoscale_fixed(a, b, D, LAMBDA1=10, LAMBDA2=5, maxIter=15, sto
         D_ = compute_new_cost(D, w_new, F, LAMBDA1)
 
         # Check stopping criterion
-        match stoppingCriterion:
-            case 'w_slope': 
-                if iterCount != 1:
-                    diff = (np.absolute(w_new - w_old)).max() 
+        if iterCount != 1:
+            diff = (np.absolute(w_new - w_old)).max() 
 
-                    if diff < epsilon:
-                        break
+            if diff < epsilon:
+                break
 
         w_old = w_new
 

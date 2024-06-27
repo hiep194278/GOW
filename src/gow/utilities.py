@@ -53,6 +53,11 @@ def load_ucr_dataset(data_dir, dataset_name):
     return X_train, y_train, X_test, y_test
 
 def run_knn(X_train, y_train, X_test, y_test, normalize_cost_matrix=True, cost_metric="minkowski", num_neighbor_list=[1, 3, 5]):
+    '''
+    Run k-NN classifier with distance between a test and 
+    train sequence computed using GOW.
+    '''
+
     train_len = len(y_train)
     test_len = len(y_test)
     X_computed = np.ones((train_len, train_len))
